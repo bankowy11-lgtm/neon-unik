@@ -105,16 +105,18 @@ function audio() {
   return actx;
 }
 const mtof = m => 440 * 2 ** ((m - 69) / 12);
-function tone(freq, dur, type = 'sine', vol = .12, slide = 0, when = 0, bus = sfxBus) {
+function tone(freq, dur, type = 'sine', vol = .12, slide = 0, when = 0, bus) {
   if (!audio()) return;
+  bus = bus || sfxBus;
   const t = actx.currentTime + when, o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .006); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
   o.connect(g).connect(bus); o.start(t); o.stop(t + dur + .02);
 }
-function noise(dur, vol = .2, freq = 1000, when = 0, bus = sfxBus, type = 'bandpass') {
+function noise(dur, vol = .2, freq = 1000, when = 0, bus, type = 'bandpass') {
   if (!audio()) return;
+  bus = bus || sfxBus;
   const t = actx.currentTime + when, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
@@ -130,8 +132,8 @@ const S = {
     if (c === 4 || c === 8) [0, 4, 7, 12].forEach((k, i) => tone(mtof(n + k), .14, 'square', .045, 0, .1 + i * .05)); },
   near() { noise(.18, .1, 2500); tone(1400, .05, 'sine', .04); },
   power() { [67, 71, 74, 79, 83].forEach((n, i) => tone(mtof(n), .22, 'sine', .1, 0, i * .05)); },
-  shieldBreak() { noise(.35, .35, 700, 0, sfxBus, 'lowpass'); tone(260, .35, 'square', .09, -180); },
-  death() { noise(.9, .45, 500, 0, sfxBus, 'lowpass'); tone(330, 1, 'sawtooth', .14, -280); tone(110, .6, 'sine', .3, -70); },
+  shieldBreak() { noise(.35, .35, 700, 0, null, 'lowpass'); tone(260, .35, 'square', .09, -180); },
+  death() { noise(.9, .45, 500, 0, null, 'lowpass'); tone(330, 1, 'sawtooth', .14, -280); tone(110, .6, 'sine', .3, -70); },
   over(rec) {
     if (rec) [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(mtof(n + 12), .3, 'square', .06, 0, i * .08));
     else [67, 63, 60, 55].forEach((n, i) => tone(mtof(n), .35, 'triangle', .12, 0, i * .16));
