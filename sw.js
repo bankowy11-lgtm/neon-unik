@@ -1,5 +1,5 @@
 // Network-first: always fresh when online, works offline from cache.
-const CACHE = 'neon-unik-v4';
+const CACHE = 'neon-unik-v5';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
