@@ -115,6 +115,15 @@
   <button class="sec" id="misBack">← Wróć</button>
 </div>
 
+<div id="revive" class="ov">
+  <h2>DRUGA SZANSA?</h2>
+  <p class="sub">Wróć do gry w tym samym miejscu, z krótką tarczą.</p>
+  <div class="big" id="revT">5</div>
+  <button id="revYes" style="padding:16px 28px; white-space:nowrap">DALEJ ⭐50</button>
+  <button class="ghost" id="revNo">Nie, dziękuję</button>
+  <p class="best">Masz ⭐ <b id="revCoins">0</b></p>
+</div>
+
 <button id="pbtn" class="icon" aria-label="Pauza">❚❚</button>
 <button id="mbtn" class="icon show" aria-label="Dźwięk">🔊</button>
 <button id="musbtn" class="icon show" aria-label="Muzyka">🎵</button>
@@ -162,10 +171,10 @@ const colorOf = s => s.color === 'rainbow' ? `hsl(${(performance.now() / 8) % 36
 // --- strefy: co 500 pkt nowa paleta i nowy rodzaj przeszkód ---
 const ZONES = [
   { name: 'NEON CITY',     bg: ['#0b0820', '#241046'], obs: '#ff3d8b', spin: '#ff8a3d' },
-  { name: 'GŁĘBIA',        bg: ['#020f1a', '#063a4a'], obs: '#b06bff', spin: '#ff6b6b', news: 'Nowość: zygzaki' },
-  { name: 'ZACHÓD SŁOŃCA', bg: ['#14040c', '#5a1430'], obs: '#ff4d6d', spin: '#ff9f1c', news: 'Nowość: rosnące bloki' },
+  { name: 'GŁĘBIA',        bg: ['#020f1a', '#063a4a'], obs: '#b06bff', spin: '#ff6b6b', news: 'Nowość: zygzaki i pulsujące kule' },
+  { name: 'ZACHÓD SŁOŃCA', bg: ['#14040c', '#5a1430'], obs: '#ff4d6d', spin: '#ff9f1c', news: 'Nowość: rosnące bloki i tunele' },
   { name: 'MATRIX',        bg: ['#010a04', '#073318'], obs: '#ff3d8b', spin: '#e2ff3d', news: 'Nowość: lasery!' },
-  { name: 'PUSTKA',        bg: ['#000000', '#181828'], obs: '#f2f2ff', spin: '#ff3d8b' },
+  { name: 'PUSTKA',        bg: ['#000000', '#181828'], obs: '#f2f2ff', spin: '#ff3d8b', news: 'Nowość: ruchome lasery!' },
 ];
 let zone = 1;
 const pal = () => ZONES[(zone - 1) % ZONES.length];
@@ -182,6 +191,7 @@ const MISSIONS = [
   { id: 'near10',    text: '10 razy „blisko!” w jednym biegu',       stat: 'near',       goal: 10,   reward: 40 },
   { id: 'score1000', text: 'Zdobądź 1000 punktów',                   stat: 'score',      goal: 1000, reward: 40 },
   { id: 'shield2',   text: 'Rozbij 2 przeszkody tarczą w jednym biegu', stat: 'shieldHits', goal: 2, reward: 40 },
+  { id: 'power3',    text: 'Zbierz 3 bonusy w jednym biegu',         stat: 'powers',     goal: 3,    reward: 30 },
   { id: 'day100',    text: 'Zbierz dziś łącznie 100 gwiazdek',       stat: 'dayStars',   goal: 100,  reward: 50, day: true },
   { id: 'games5',    text: 'Zagraj dziś 5 gier',                     stat: 'games',      goal: 5,    reward: 30, day: true },
 ];
@@ -257,6 +267,7 @@ const S = {
   mission() { [72, 76, 79, 84, 88].forEach((n, i) => tone(mtof(n), .2, 'square', .06, 0, i * .07)); tone(2400, .4, 'sine', .04, 0, .35); },
   laserWarn() { [0, .18, .36].forEach(w => tone(1500, .07, 'square', .04, 0, w)); },
   laserFire() { noise(.4, .25, 3000); tone(900, .45, 'sawtooth', .08, -700); },
+  emp() { noise(.7, .45, 1200); tone(1400, .6, 'square', .07, -1300); tone(70, .7, 'sawtooth', .18, 300); },
   buy() { [72, 79, 84, 91].forEach((n, i) => tone(mtof(n), .18, 'triangle', .1, 0, i * .06)); },
   deny() { tone(160, .2, 'square', .06); },
 };
@@ -292,7 +303,8 @@ const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (
 // --- stan gry ---
 let state = 'menu', player = null, obs = [], stars = [], powers = [], parts = [], texts = [], banners = [], run = null;
 let score = 0, time = 0, combo = 1, comboT = 0, shake = 0, spawnT, starT, powT, laserT, shield = 0, slow = 0, deadT = 0;
-let flash = 0, flashCol = '255,61,139';
+let flash = 0, flashCol = '255,61,139', magnet = 0, tunnel = null, tunnelT = 0, empFx = null, reviveT = 0;
+const REVIVE_COST = 50;
 const bg = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), z: Math.random() * .8 + .2 }));
 resize();
 
@@ -300,8 +312,8 @@ function reset() {
   player = { x: W / 2, y: H - Math.max(110, H * .16), tx: W / 2, r: 11, tilt: 0, trail: [] };
   obs = []; stars = []; powers = []; parts = []; texts = []; banners = [];
   score = 0; time = 0; combo = 1; comboT = 0; shake = 0; spawnT = .6; starT = 1.2; powT = 9; laserT = 3;
-  shield = 0; slow = 0; deadT = 0; flash = 0; zone = 1;
-  run = { stars: 0, near: 0, shieldHits: 0, combo: 1, clean: 0, time: 0, zone: 1, score: 0, picked: false, missions: [] };
+  shield = 0; slow = 0; deadT = 0; flash = 0; zone = 1; magnet = 0; tunnel = null; tunnelT = 12; empFx = null;
+  run = { stars: 0, near: 0, shieldHits: 0, combo: 1, clean: 0, time: 0, zone: 1, score: 0, powers: 0, picked: false, revived: false, missions: [] };
 }
 const diff = () => Math.min(1, time / 75);   // trudność rośnie przez ~75 s
 
@@ -309,14 +321,18 @@ function spawnObstacle() {
   const d = diff(), r = Math.random();
   let kind = 'block';
   if (r < .18 + d * .2) kind = 'spin';
-  else if (zone >= 2 && r < .42) kind = 'zig';
-  else if (zone >= 3 && r < .58) kind = 'grow';
+  else if (zone >= 2 && r < .36) kind = 'zig';
+  else if (zone >= 2 && r < .46) kind = 'pulse';
+  else if (zone >= 3 && r < .6) kind = 'grow';
   const o = { kind, y: -40, vy: (170 + d * 280) * (.8 + Math.random() * .45), vx: 0, rot: 0, vr: (Math.random() - .5) * 7, t: 0, near: false };
   if (kind === 'spin') {
     o.w = o.h = 26 + Math.random() * 16; o.x = o.w / 2 + Math.random() * (W - o.w); o.vx = (Math.random() - .5) * 160 * (.3 + d);
   } else if (kind === 'zig') {
     o.w = 36 + Math.random() * 24; o.h = 18; o.amp = 50 + Math.random() * 40; o.f = 2.5 + Math.random() * 1.5;
     o.bx = o.amp + o.w / 2 + Math.random() * Math.max(0, W - 2 * o.amp - o.w); o.x = o.bx; o.vy *= .85;
+  } else if (kind === 'pulse') {
+    o.r0 = 14 + Math.random() * 8; o.w = o.h = o.r0 * 2; o.rad = o.r0; o.ph = Math.random() * 6;
+    o.x = o.r0 * 1.5 + Math.random() * (W - o.r0 * 3); o.vy *= .9;
   } else if (kind === 'grow') {
     o.w = 24; o.h = 18; o.maxW = Math.min(W * .45, 110 + Math.random() * 70); o.x = o.maxW / 2 + Math.random() * (W - o.maxW); o.vy *= .8;
   } else {
@@ -324,13 +340,47 @@ function spawnObstacle() {
   }
   obs.push(o);
 }
-function spawnLaser() {
-  const x = Math.max(20, Math.min(W - 20, player.x + (Math.random() - .5) * 140));
-  obs.push({ kind: 'laser', x, y: H / 2, w: 22, h: H, t: 0, warn: 1.1, fire: .45, fired: false, near: true });
+function spawnLaser(sweep) {
+  // ruchomy laser kołysze się w zaznaczonym pasie, zwykły strzela raz w jednym miejscu
+  const amp = sweep ? Math.min(W * .28, 70 + Math.random() * 50) : 0;
+  const x = Math.max(20 + amp, Math.min(W - 20 - amp, player.x + (Math.random() - .5) * 140));
+  obs.push({ kind: 'laser', cx: x, x, amp, y: H / 2, w: sweep ? 16 : 22, h: H, t: 0,
+    warn: sweep ? 1.3 : 1.1, fire: sweep ? 1.8 : .45, fired: false, near: true });
   S.laserWarn();
 }
-function spawnStar() { stars.push({ x: 24 + Math.random() * (W - 48), y: -20, vy: 150 + diff() * 120, t: 0 }); }
-function spawnPower() { powers.push({ x: 30 + Math.random() * (W - 60), y: -20, vy: 140, kind: Math.random() < .5 ? 'shield' : 'slow', t: 0 }); }
+function startTunnel() {
+  tunnel = { rows: 16, total: 16, cx: W / 2, dir: Math.random() < .5 ? -1 : 1, vy: 230 + diff() * 120, t: 1 };
+  popText(W / 2, 150, 'TUNEL!', pal().obs); S.laserWarn();
+}
+function spawnTunnelRow() {
+  // rzędy ścian stykają się ze sobą, przejście lekko się przesuwa i zwęża
+  const T = tunnel, gap = 160 - (1 - T.rows / T.total) * 50, h = 24;
+  if (Math.random() < .25) T.dir *= -1;
+  const lo = gap / 2 + 20, hi = W - gap / 2 - 20;
+  T.cx += T.dir * 14;
+  if (T.cx < lo || T.cx > hi) { T.cx = Math.max(lo, Math.min(hi, T.cx)); T.dir *= -1; }
+  const lw = T.cx - gap / 2, rw = W - (T.cx + gap / 2);
+  const wall = (x, w) => obs.push({ kind: 'wall', x, y: -h / 2, w, h, vy: T.vy, vx: 0, rot: 0, vr: 0, t: 0, near: true });
+  if (lw > 0) wall(lw / 2, lw);
+  if (rw > 0) wall(W - rw / 2, rw);
+  T.t = h / T.vy;
+  if (--T.rows <= 0) { tunnel = null; tunnelT = 14 + Math.random() * 8; }
+}
+function spawnStar() { stars.push({ x: tunnel ? tunnel.cx : 24 + Math.random() * (W - 48), y: -20, vy: 150 + diff() * 120, t: 0 }); }
+const POW = {
+  shield: { c: '#3df2ff', l: 'T' }, slow: { c: '#7dff6b', l: 'S' }, magnet: { c: '#ff5ec8', l: 'M' }, emp: { c: '#ffffff', l: 'E' },
+};
+function spawnPower() {
+  const r = Math.random(), kind = r < .3 ? 'shield' : r < .55 ? 'slow' : r < .8 ? 'magnet' : 'emp';
+  powers.push({ x: 30 + Math.random() * (W - 60), y: -20, vy: 140, kind, t: 0 });
+}
+function emp() {
+  // fala uderzeniowa: niszczy wszystko na ekranie
+  for (const o of obs) burst(o.x, o.kind === 'laser' ? player.y - 120 : o.y, o.kind === 'spin' ? pal().spin : pal().obs, 10, 200);
+  obs = []; tunnel = null; tunnelT = 10;
+  shake = 12; flash = .7; flashCol = '255,255,255'; empFx = { x: player.x, y: player.y, t: 1 };
+  S.emp(); buzz([40, 30, 60]);
+}
 
 function burst(x, y, color, n = 16, sp = 220) {
   for (let i = 0; i < n; i++) {
@@ -371,7 +421,7 @@ addEventListener('keyup', e => keys[e.key] = false);
 
 // --- ekrany ---
 function show(id) {
-  ['menu', 'over', 'pause', 'shop', 'missions'].forEach(o => $(o).classList.toggle('show', o === id));
+  ['menu', 'over', 'pause', 'shop', 'missions', 'revive'].forEach(o => $(o).classList.toggle('show', o === id));
   const panel = id === 'shop' || id === 'missions';
   $('mbtn').classList.toggle('show', !panel); $('musbtn').classList.toggle('show', !panel);
 }
@@ -448,6 +498,14 @@ function renderMissions() {
 }
 
 $('play').onclick = start; $('again').onclick = start; $('toMenu').onclick = toMenu;
+function revive() {
+  // drugie życie raz na bieg; tu za gwiazdki, w wersji ze sklepu Play może być za reklamę
+  if (state !== 'revive') return;
+  prof.coins -= REVIVE_COST; run.revived = true; saveProf();
+  obs = []; tunnel = null; tunnelT = 10; shield = 3; player.trail = [];
+  state = 'play'; show(null); hud(true); flash = .6; flashCol = '61,242,255'; S.power(); buzz(30); last = performance.now();
+}
+$('revYes').onclick = revive; $('revNo').onclick = () => state === 'revive' && showOver();
 $('resume').onclick = resume; $('quit').onclick = toMenu; $('pbtn').onclick = pause;
 $('toShop').onclick = () => openShop('menu'); $('overShop').onclick = () => openShop('over');
 $('shopBack').onclick = () => backTo === 'over' ? show('over') : toMenu();
@@ -502,16 +560,23 @@ function update(dt) {
   }
 
   // pojawianie się obiektów
-  spawnT -= dt * ts; starT -= dt * ts; powT -= dt * ts;
-  if (spawnT <= 0) { spawnObstacle(); if (d > .5 && Math.random() < d * .4) spawnObstacle(); spawnT = .85 - d * .55; }
+  starT -= dt * ts; powT -= dt * ts;
+  if (tunnel) { if ((tunnel.t -= dt * ts) <= 0) spawnTunnelRow(); }   // w tunelu nic innego nie spada
+  else {
+    if ((spawnT -= dt * ts) <= 0) { spawnObstacle(); if (d > .5 && Math.random() < d * .4) spawnObstacle(); spawnT = .85 - d * .55; }
+    if (zone >= 4 && (laserT -= dt * ts) <= 0) {
+      spawnLaser(zone >= 5 && Math.random() < .5); laserT = Math.max(2.5, 5.5 - (zone - 4) * .6) + Math.random() * 2;
+    }
+    if (zone >= 3 && (tunnelT -= dt * ts) <= 0) startTunnel();
+  }
   if (starT <= 0) { spawnStar(); starT = .9 + Math.random() * 1.1; }
   if (powT <= 0) { spawnPower(); powT = 10 + Math.random() * 8; }
-  if (zone >= 4 && (laserT -= dt * ts) <= 0) { spawnLaser(); laserT = Math.max(2.5, 5.5 - (zone - 4) * .6) + Math.random() * 2; }
 
   score += dt * 10 * (1 + d);
   if (comboT > 0 && (comboT -= dt) <= 0) combo = 1;
   if (shield > 0) shield -= dt;
   if (slow > 0) slow -= dt;
+  if (magnet > 0) magnet -= dt;
 
   // przeszkody
   for (let i = obs.length - 1; i >= 0; i--) {
@@ -519,6 +584,7 @@ function update(dt) {
     if (o.kind === 'laser') {
       o.t += dt * ts;
       if (!o.fired && o.t >= o.warn) { o.fired = true; S.laserFire(); shake = Math.max(shake, 6); buzz(30); }
+      if (o.fired && o.amp) o.x = o.cx + Math.sin((o.t - o.warn) * 2.6) * o.amp;
       const firing = o.fired && o.t < o.warn + o.fire;
       if (firing && !o.harmless && Math.abs(p.x - o.x) < o.w / 2 + p.r * .7) {
         if (shield > 0) {
@@ -533,7 +599,9 @@ function update(dt) {
     if (o.kind === 'spin') { o.x += o.vx * dt * ts; if (o.x < o.w / 2 || o.x > W - o.w / 2) o.vx *= -1; }
     if (o.kind === 'zig') o.x = o.bx + Math.sin(o.t * o.f) * o.amp;
     if (o.kind === 'grow') o.w = Math.min(o.maxW, o.w + 90 * dt * ts);
-    const hit = o.kind === 'spin' ? Math.hypot(o.x - p.x, o.y - p.y) < o.w * .45 + p.r : circleRect(p.x, p.y, p.r, o);
+    if (o.kind === 'pulse') o.rad = o.r0 * (1 + .45 * Math.sin(o.t * 5 + o.ph));
+    const hit = o.kind === 'spin' ? Math.hypot(o.x - p.x, o.y - p.y) < o.w * .45 + p.r
+      : o.kind === 'pulse' ? Math.hypot(o.x - p.x, o.y - p.y) < o.rad * .9 + p.r : circleRect(p.x, p.y, p.r, o);
     if (hit) {
       if (shield > 0) {
         shield = 0; run.shieldHits++; burst(o.x, o.y, pal().obs, 24); shake = 8; S.shieldBreak(); buzz(40);
@@ -541,7 +609,8 @@ function update(dt) {
       }
       gameOver(); return;
     }
-    if (!o.near && o.y > p.y && Math.abs(o.x - p.x) < (o.kind === 'spin' ? o.w * .45 : o.w / 2) + p.r + 18) {
+    const ext = o.kind === 'spin' ? o.w * .45 : o.kind === 'pulse' ? o.r0 * 1.45 : o.w / 2;
+    if (!o.near && o.y > p.y && Math.abs(o.x - p.x) < ext + p.r + 18) {
       o.near = true; score += 5; run.near++; popText(p.x, p.y - 30, 'blisko! +5', '#fff'); S.near();
     }
     if (o.y > H + 60) obs.splice(i, 1);
@@ -551,7 +620,8 @@ function update(dt) {
   for (let i = stars.length - 1; i >= 0; i--) {
     const s = stars[i]; s.t += dt; s.y += s.vy * dt * ts;
     const dx = p.x - s.x, dy = p.y - s.y, dist = Math.hypot(dx, dy);
-    if (dist < 90) { s.x += dx / dist * 160 * dt; s.y += dy / dist * 160 * dt; }
+    const mr = magnet > 0 ? 280 : 90, pull = magnet > 0 ? 460 : 160;
+    if (dist < mr) { s.x += dx / dist * pull * dt; s.y += dy / dist * pull * dt; }
     if (dist < p.r + 16) {
       const pts = 10 * combo; score += pts;
       popText(s.x, s.y, '+' + pts, '#ffd23d'); burst(s.x, s.y, '#ffd23d', 12, 160);
@@ -567,10 +637,13 @@ function update(dt) {
   for (let i = powers.length - 1; i >= 0; i--) {
     const q = powers[i]; q.t += dt; q.y += q.vy * dt * ts;
     if (Math.hypot(p.x - q.x, p.y - q.y) < p.r + 18) {
-      if (q.kind === 'shield') { shield = 7; run.picked = true; popText(q.x, q.y, 'TARCZA', '#3df2ff'); }
-      else { slow = 4; popText(q.x, q.y, 'SPOWOLNIENIE', '#7dff6b'); }
-      burst(q.x, q.y, q.kind === 'shield' ? '#3df2ff' : '#7dff6b', 20); S.power(); buzz(20);
-      powers.splice(i, 1); continue;
+      const c = POW[q.kind].c; run.powers++; powers.splice(i, 1);
+      burst(q.x, q.y, c, 20); buzz(20);
+      if (q.kind === 'shield') { shield = 7; run.picked = true; popText(q.x, q.y, 'TARCZA', c); }
+      else if (q.kind === 'slow') { slow = 4; popText(q.x, q.y, 'SPOWOLNIENIE', c); }
+      else if (q.kind === 'magnet') { magnet = 8; popText(q.x, q.y, 'MAGNES', c); }
+      if (q.kind === 'emp') { popText(q.x, q.y, 'EMP!', c); emp(); } else S.power();
+      continue;
     }
     if (q.y > H + 30) powers.splice(i, 1);
   }
@@ -586,6 +659,7 @@ function updateFx(dt) {
   }
   for (let i = texts.length - 1; i >= 0; i--) { texts[i].y -= 50 * dt; if ((texts[i].life -= dt) <= 0) texts.splice(i, 1); }
   if (banners.length && (banners[0].t -= dt) <= 0) banners.shift();
+  if (empFx && (empFx.t -= dt * 1.6) <= 0) empFx = null;
   shake = Math.max(0, shake - dt * 40); flash = Math.max(0, flash - dt * 3);
   const speed = state === 'play' ? (slow > 0 ? .4 : 1) * (1 + diff() * 2) : .4;
   for (const s of bg) { s.y += s.z * speed * dt * .25; if (s.y > 1) { s.y = 0; s.x = Math.random(); } }
@@ -614,6 +688,10 @@ function draw() {
   ctx.globalCompositeOperation = 'lighter';
   for (const q of parts) { ctx.globalAlpha = Math.max(0, q.life); ctx.fillStyle = q.color; ctx.fillRect(q.x - q.s / 2, q.y - q.s / 2, q.s, q.s); }
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  if (empFx) {
+    glow('#fff', 24); ctx.strokeStyle = `rgba(255,255,255,${empFx.t})`; ctx.lineWidth = 6 * empFx.t + 1;
+    ctx.beginPath(); ctx.arc(empFx.x, empFx.y, (1 - empFx.t) * Math.hypot(W, H), 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
+  }
 
   ctx.textAlign = 'center'; ctx.font = '800 16px system-ui, sans-serif';
   for (const t of texts) { ctx.globalAlpha = Math.max(0, t.life); ctx.fillStyle = t.color; ctx.fillText(t.txt, t.x, t.y); }
@@ -662,6 +740,10 @@ function drawPlayer() {
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   }
   drawShip(ctx, p.x, p.y, ship.shape, col, p.tilt);
+  if (magnet > 0 && !(magnet < 1.5 && Math.floor(magnet * 8) % 2)) {
+    ctx.strokeStyle = 'rgba(255,94,200,.55)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]); ctx.lineDashOffset = -time * 40;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 40, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  }
   if (shield > 0) {
     const blink = shield < 1.5 && Math.floor(shield * 8) % 2;
     if (!blink) { glow('#3df2ff', 16); ctx.strokeStyle = 'rgba(61,242,255,.8)'; ctx.lineWidth = 2.5;
@@ -672,12 +754,17 @@ function drawPlayer() {
 function drawObstacle(o, zp) {
   if (o.kind === 'laser') {
     if (o.t < o.warn) {
+      if (o.amp) {   // pas, w którym będzie się kołysał ruchomy laser
+        ctx.globalAlpha = .1 + .12 * Math.abs(Math.sin(o.t * 7)); ctx.fillStyle = zp.obs;
+        ctx.fillRect(o.cx - o.amp - o.w / 2, 0, o.amp * 2 + o.w, H);
+        ctx.globalAlpha = .8; ctx.font = '900 22px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⟷', o.cx, 160);
+      }
       ctx.globalAlpha = .25 + .55 * Math.abs(Math.sin(o.t * 14)); ctx.strokeStyle = zp.obs; ctx.lineWidth = 2;
       ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(o.x, 0); ctx.lineTo(o.x, H); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = zp.obs; ctx.font = '900 26px system-ui, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('!', o.x, 120); ctx.globalAlpha = 1;
     } else if (!o.harmless || o.t < o.warn + o.fire) {
-      const k = 1 - (o.t - o.warn) / o.fire, w = o.w * (.4 + .6 * k);
+      const k = 1 - (o.t - o.warn) / o.fire, w = o.amp ? o.w : o.w * (.4 + .6 * k);
       glow(zp.obs, 30); ctx.fillStyle = zp.obs; ctx.globalAlpha = o.harmless ? .3 : 1;
       ctx.fillRect(o.x - w / 2, 0, w, H); ctx.shadowBlur = 0;
       ctx.fillStyle = '#fff'; ctx.fillRect(o.x - w / 6, 0, w / 3, H); ctx.globalAlpha = 1;
@@ -685,7 +772,15 @@ function drawObstacle(o, zp) {
     return;
   }
   ctx.save(); ctx.translate(o.x, o.y);
-  if (o.kind === 'spin') {
+  if (o.kind === 'pulse') {
+    glow(zp.obs, 22); ctx.fillStyle = zp.obs; ctx.beginPath(); ctx.arc(0, 0, o.rad, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, o.rad * .55, 0, 7); ctx.stroke();
+  } else if (o.kind === 'wall') {
+    glow(zp.obs, 14); ctx.fillStyle = zp.obs; ctx.globalAlpha = .9; ctx.fillRect(-o.w / 2, -o.h / 2 - .5, o.w, o.h + 1);
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.fillRect(o.x < W / 2 ? o.w / 2 - 3 : -o.w / 2, -o.h / 2 - .5, 3, o.h + 1);   // jasna krawędź przy przejściu
+  } else if (o.kind === 'spin') {
     ctx.rotate(o.rot); glow(zp.spin, 18); ctx.fillStyle = zp.spin;
     const r = o.w / 2; ctx.beginPath();
     for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * .55 : r; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
@@ -713,10 +808,10 @@ function drawStar(x, y, r, rot) {
 }
 
 function drawPower(q) {
-  const c = q.kind === 'shield' ? '#3df2ff' : '#7dff6b', r = 15 + Math.sin(q.t * 6) * 2;
+  const c = POW[q.kind].c, r = 15 + Math.sin(q.t * 6) * 2;
   glow(c, 20); ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke();
   ctx.shadowBlur = 0; ctx.fillStyle = c; ctx.font = '800 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(q.kind === 'shield' ? 'T' : 'S', q.x, q.y + 1); ctx.textBaseline = 'alphabetic';
+  ctx.fillText(POW[q.kind].l, q.x, q.y + 1); ctx.textBaseline = 'alphabetic';
 }
 
 function roundRect(x, y, w, h, r) {
@@ -733,8 +828,11 @@ function drawHud() {
   ctx.fillStyle = '#ffd23d'; ctx.fillText('STREFA ' + zone + '  ·  ⭐ ' + run.stars, 16, top + 52);
   if (combo > 1) { ctx.fillStyle = '#ffd23d'; ctx.font = '900 20px system-ui, sans-serif'; ctx.fillText('x' + combo + ' COMBO', 16, top + 78);
     ctx.fillRect(16, top + 84, 90 * (comboT / 2.5), 3); }
-  if (slow > 0) { ctx.textAlign = 'center'; ctx.fillStyle = '#7dff6b'; ctx.font = '800 14px system-ui, sans-serif';
-    ctx.fillText('SPOWOLNIENIE ' + slow.toFixed(1) + 's', W / 2, H - 24); }
+  const tm = [];
+  if (slow > 0) tm.push(['SPOWOLNIENIE ' + slow.toFixed(1) + 's', '#7dff6b']);
+  if (magnet > 0) tm.push(['MAGNES ' + magnet.toFixed(1) + 's', '#ff5ec8']);
+  ctx.textAlign = 'center'; ctx.font = '800 14px system-ui, sans-serif';
+  tm.forEach(([t, c], i) => { ctx.fillStyle = c; ctx.fillText(t, W / 2, H - 24 - i * 20); });
 }
 
 function drawBanner() {
@@ -753,9 +851,14 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(.033, (now - last) / 1000); last = now;
   if (state === 'play') update(dt);
-  if (state === 'dying' && (deadT -= dt) <= 0) showOver();
+  if (state === 'dying' && (deadT -= dt) <= 0) {
+    if (!run.revived && prof.coins >= REVIVE_COST) {
+      state = 'revive'; reviveT = 5; $('revCoins').textContent = prof.coins; show('revive'); hud(false);
+    } else showOver();
+  }
+  if (state === 'revive') { reviveT -= dt; $('revT').textContent = Math.ceil(Math.max(0, reviveT)); if (reviveT <= 0) showOver(); }
   if (state !== 'pause') updateFx(dt);
-  if (state !== 'dying') setCutoff(state === 'play' && slow > 0 ? 900 : state === 'pause' ? 1200 : 18000, state === 'over' ? .5 : .15);
+  if (state !== 'dying') setCutoff(state === 'play' && slow > 0 ? 900 : state === 'pause' || state === 'revive' ? 1200 : 18000, state === 'over' ? .5 : .15);
   draw();
   requestAnimationFrame(loop);
 }
