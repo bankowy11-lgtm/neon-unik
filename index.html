@@ -67,61 +67,61 @@
 <canvas id="c"></canvas>
 
 <div id="menu" class="ov show">
-  <h1>NEON<br><span>UNIK</span></h1>
-  <p class="sub">Przesuwaj palcem, żeby sterować.<br>Unikaj przeszkód, zbieraj ⭐ i bonusy.</p>
+  <h1 id="title">NEON<br><span>UNIK</span></h1>
+  <p class="sub" id="howto">Przesuwaj palcem, żeby sterować.<br>Unikaj przeszkód, zbieraj ⭐ i bonusy.</p>
   <p class="coins">⭐ <span id="coinsM">0</span></p>
   <button id="play">GRAJ</button>
   <div class="row">
-    <button class="sec" id="toShop">🛒 Sklep</button>
-    <button class="sec" id="toMis">🎯 Misje<span class="badge" id="misBadge">0/3</span></button>
+    <button class="sec" id="toShop">🛒 <span data-t="shop">Sklep</span></button>
+    <button class="sec" id="toMis">🎯 <span data-t="missions">Misje</span><span class="badge" id="misBadge">0/3</span></button>
   </div>
-  <p class="best">Rekord: <b id="bestM">0</b></p>
+  <p class="best"><span data-t="best">Rekord</span>: <b id="bestM">0</b></p>
 </div>
 
 <div id="over" class="ov">
-  <h2>KONIEC</h2>
+  <h2 data-t="over">KONIEC</h2>
   <div class="big" id="sc">0</div>
-  <p id="nr">NOWY REKORD!</p>
-  <p class="best">Rekord: <b id="bestO">0</b></p>
+  <p id="nr" data-t="newBest">NOWY REKORD!</p>
+  <p class="best"><span data-t="best">Rekord</span>: <b id="bestO">0</b></p>
   <p id="runInfo"></p>
   <p id="runMis"></p>
   <button id="again">JESZCZE RAZ</button>
   <div class="row">
-    <button class="sec" id="overShop">🛒 Sklep</button>
+    <button class="sec" id="overShop">🛒 <span data-t="shop">Sklep</span></button>
     <button class="sec" id="toMenu">Menu</button>
   </div>
 </div>
 
 <div id="pause" class="ov">
-  <h2>PAUZA</h2>
+  <h2 data-t="pause">PAUZA</h2>
   <button id="resume">GRAJ DALEJ</button>
-  <button class="ghost" id="quit">Zakończ</button>
+  <button class="ghost" id="quit" data-t="quit">Zakończ</button>
 </div>
 
 <div id="shop" class="ov top">
-  <h2>SKLEP</h2>
+  <h2 data-t="shopT">SKLEP</h2>
   <p class="coins">⭐ <span id="coinsS">0</span></p>
   <div class="panel">
-    <h3>STATKI</h3><div class="grid" id="shopShips"></div>
-    <h3>SMUGI</h3><div class="grid" id="shopTrails"></div>
+    <h3 data-t="ships">STATKI</h3><div class="grid" id="shopShips"></div>
+    <h3 data-t="trails">SMUGI</h3><div class="grid" id="shopTrails"></div>
   </div>
-  <button class="sec" id="shopBack">← Wróć</button>
+  <button class="sec" id="shopBack">← <span data-t="back">Wróć</span></button>
 </div>
 
 <div id="missions" class="ov top">
-  <h2>MISJE DNIA</h2>
-  <p class="sub">Nowe misje codziennie o północy. Nagrody w ⭐ trafiają od razu do portfela.</p>
+  <h2 data-t="misT">MISJE DNIA</h2>
+  <p class="sub" data-t="misSub">Nowe misje codziennie o północy. Nagrody w ⭐ trafiają od razu do portfela.</p>
   <div class="panel" id="misList"></div>
-  <button class="sec" id="misBack">← Wróć</button>
+  <button class="sec" id="misBack">← <span data-t="back">Wróć</span></button>
 </div>
 
 <div id="revive" class="ov">
-  <h2>DRUGA SZANSA?</h2>
-  <p class="sub">Wróć do gry w tym samym miejscu, z krótką tarczą.</p>
+  <h2 data-t="revT">DRUGA SZANSA?</h2>
+  <p class="sub" data-t="revSub">Wróć do gry w tym samym miejscu, z krótką tarczą.</p>
   <div class="big" id="revT">5</div>
   <button id="revYes" style="padding:16px 28px; white-space:nowrap">DALEJ ⭐50</button>
-  <button class="ghost" id="revNo">Nie, dziękuję</button>
-  <p class="best">Masz ⭐ <b id="revCoins">0</b></p>
+  <button class="ghost" id="revNo" data-t="revNo">Nie, dziękuję</button>
+  <p class="best"><span data-t="have">Masz</span> ⭐ <b id="revCoins">0</b></p>
 </div>
 
 <button id="pbtn" class="icon" aria-label="Pauza">❚❚</button>
@@ -131,6 +131,10 @@
 <script>
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
+// język: polski dla telefonów ustawionych na polski, dla wszystkich innych angielski
+const LANG = (navigator.languages && navigator.languages[0] || navigator.language || 'en').toLowerCase().startsWith('pl') ? 'pl' : 'en';
+const tr = (pl, en) => LANG === 'pl' ? pl : en;
+document.documentElement.lang = LANG;
 let W, H;
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -150,18 +154,18 @@ let best = store.get('nu_best', 0), muted = store.get('nu_muted', false), musicO
 
 // --- sklep: statki i smugi kupowane za gwiazdki ---
 const SHIPS = [
-  { id: 'arrow',   name: 'Strzała',         price: 0,   color: '#3df2ff', shape: 'arrow' },
-  { id: 'rose',    name: 'Różowa strzała',  price: 60,  color: '#ff5ec8', shape: 'arrow' },
-  { id: 'fighter', name: 'Myśliwiec',       price: 150, color: '#7dff6b', shape: 'fighter' },
-  { id: 'ufo',     name: 'Spodek',          price: 250, color: '#b06bff', shape: 'ufo' },
-  { id: 'gold',    name: 'Złoty myśliwiec', price: 400, color: '#ffd23d', shape: 'fighter' },
-  { id: 'rainbow', name: 'Tęczowy spodek',  price: 700, color: 'rainbow', shape: 'ufo' },
+  { id: 'arrow',   name: tr('Strzała', 'Arrow'), price: 0,   color: '#3df2ff', shape: 'arrow' },
+  { id: 'rose',    name: tr('Różowa strzała', 'Pink Arrow'), price: 60,  color: '#ff5ec8', shape: 'arrow' },
+  { id: 'fighter', name: tr('Myśliwiec', 'Fighter'), price: 150, color: '#7dff6b', shape: 'fighter' },
+  { id: 'ufo',     name: tr('Spodek', 'Saucer'), price: 250, color: '#b06bff', shape: 'ufo' },
+  { id: 'gold',    name: tr('Złoty myśliwiec', 'Golden Fighter'), price: 400, color: '#ffd23d', shape: 'fighter' },
+  { id: 'rainbow', name: tr('Tęczowy spodek', 'Rainbow Saucer'), price: 700, color: 'rainbow', shape: 'ufo' },
 ];
 const TRAILS = [
-  { id: 'classic', name: 'Klasyczna', price: 0,   emo: '💠' },
-  { id: 'sparks',  name: 'Iskry',     price: 80,  emo: '✨' },
-  { id: 'fire',    name: 'Ogień',     price: 150, emo: '🔥' },
-  { id: 'rainbow', name: 'Tęcza',     price: 300, emo: '🌈' },
+  { id: 'classic', name: tr('Klasyczna', 'Classic'), price: 0,   emo: '💠' },
+  { id: 'sparks',  name: tr('Iskry', 'Sparks'), price: 80,  emo: '✨' },
+  { id: 'fire',    name: tr('Ogień', 'Fire'), price: 150, emo: '🔥' },
+  { id: 'rainbow', name: tr('Tęcza', 'Rainbow'), price: 300, emo: '🌈' },
 ];
 const prof = Object.assign({ coins: 0, owned: ['arrow', 'classic'], ship: 'arrow', trail: 'classic' }, store.get('nu_profile', {}));
 const saveProf = () => store.set('nu_profile', prof);
@@ -171,29 +175,29 @@ const colorOf = s => s.color === 'rainbow' ? `hsl(${(performance.now() / 8) % 36
 // --- strefy: co 500 pkt nowa paleta i nowy rodzaj przeszkód ---
 const ZONES = [
   { name: 'NEON CITY',     bg: ['#0b0820', '#241046'], obs: '#ff3d8b', spin: '#ff8a3d' },
-  { name: 'GŁĘBIA',        bg: ['#020f1a', '#063a4a'], obs: '#b06bff', spin: '#ff6b6b', news: 'Nowość: zygzaki i pulsujące kule' },
-  { name: 'ZACHÓD SŁOŃCA', bg: ['#14040c', '#5a1430'], obs: '#ff4d6d', spin: '#ff9f1c', news: 'Nowość: rosnące bloki i tunele' },
-  { name: 'MATRIX',        bg: ['#010a04', '#073318'], obs: '#ff3d8b', spin: '#e2ff3d', news: 'Nowość: lasery!' },
-  { name: 'PUSTKA',        bg: ['#000000', '#181828'], obs: '#f2f2ff', spin: '#ff3d8b', news: 'Nowość: ruchome lasery!' },
+  { name: tr('GŁĘBIA', 'THE DEEP'), bg: ['#020f1a', '#063a4a'], obs: '#b06bff', spin: '#ff6b6b', news: tr('Nowość: zygzaki i pulsujące kule', 'New: zigzags and pulsing orbs') },
+  { name: tr('ZACHÓD SŁOŃCA', 'SUNSET'), bg: ['#14040c', '#5a1430'], obs: '#ff4d6d', spin: '#ff9f1c', news: tr('Nowość: rosnące bloki i tunele', 'New: growing blocks and tunnels') },
+  { name: 'MATRIX',        bg: ['#010a04', '#073318'], obs: '#ff3d8b', spin: '#e2ff3d', news: tr('Nowość: lasery!', 'New: lasers!') },
+  { name: tr('PUSTKA', 'THE VOID'), bg: ['#000000', '#181828'], obs: '#f2f2ff', spin: '#ff3d8b', news: tr('Nowość: ruchome lasery!', 'New: moving lasers!') },
 ];
 let zone = 1;
 const pal = () => ZONES[(zone - 1) % ZONES.length];
 
 // --- misje dnia: 3 losowane według daty ---
 const MISSIONS = [
-  { id: 'stars25',   text: 'Zbierz 25 gwiazdek w jednym biegu',      stat: 'stars',      goal: 25,   reward: 30 },
-  { id: 'stars50',   text: 'Zbierz 50 gwiazdek w jednym biegu',      stat: 'stars',      goal: 50,   reward: 60 },
-  { id: 'clean60',   text: 'Przetrwaj 60 s bez zbierania tarczy',    stat: 'clean',      goal: 60,   reward: 50 },
-  { id: 'time90',    text: 'Przetrwaj 90 sekund',                    stat: 'time',       goal: 90,   reward: 60 },
-  { id: 'zone3',     text: 'Dotrzyj do strefy 3',                    stat: 'zone',       goal: 3,    reward: 40 },
-  { id: 'zone5',     text: 'Dotrzyj do strefy 5',                    stat: 'zone',       goal: 5,    reward: 80 },
-  { id: 'combo8',    text: 'Zrób combo x8',                          stat: 'combo',      goal: 8,    reward: 40 },
-  { id: 'near10',    text: '10 razy „blisko!” w jednym biegu',       stat: 'near',       goal: 10,   reward: 40 },
-  { id: 'score1000', text: 'Zdobądź 1000 punktów',                   stat: 'score',      goal: 1000, reward: 40 },
-  { id: 'shield2',   text: 'Rozbij 2 przeszkody tarczą w jednym biegu', stat: 'shieldHits', goal: 2, reward: 40 },
-  { id: 'power3',    text: 'Zbierz 3 bonusy w jednym biegu',         stat: 'powers',     goal: 3,    reward: 30 },
-  { id: 'day100',    text: 'Zbierz dziś łącznie 100 gwiazdek',       stat: 'dayStars',   goal: 100,  reward: 50, day: true },
-  { id: 'games5',    text: 'Zagraj dziś 5 gier',                     stat: 'games',      goal: 5,    reward: 30, day: true },
+  { id: 'stars25',   text: tr('Zbierz 25 gwiazdek w jednym biegu', 'Collect 25 stars in one run'),      stat: 'stars',      goal: 25,   reward: 30 },
+  { id: 'stars50',   text: tr('Zbierz 50 gwiazdek w jednym biegu', 'Collect 50 stars in one run'),      stat: 'stars',      goal: 50,   reward: 60 },
+  { id: 'clean60',   text: tr('Przetrwaj 60 s bez zbierania tarczy', 'Survive 60 s without picking up a shield'),    stat: 'clean',      goal: 60,   reward: 50 },
+  { id: 'time90',    text: tr('Przetrwaj 90 sekund', 'Survive 90 seconds'),                    stat: 'time',       goal: 90,   reward: 60 },
+  { id: 'zone3',     text: tr('Dotrzyj do strefy 3', 'Reach zone 3'),                    stat: 'zone',       goal: 3,    reward: 40 },
+  { id: 'zone5',     text: tr('Dotrzyj do strefy 5', 'Reach zone 5'),                    stat: 'zone',       goal: 5,    reward: 80 },
+  { id: 'combo8',    text: tr('Zrób combo x8', 'Get an x8 combo'),                          stat: 'combo',      goal: 8,    reward: 40 },
+  { id: 'near10',    text: tr('10 razy „blisko!” w jednym biegu', '10 close calls in one run'),       stat: 'near',       goal: 10,   reward: 40 },
+  { id: 'score1000', text: tr('Zdobądź 1000 punktów', 'Score 1000 points'),                   stat: 'score',      goal: 1000, reward: 40 },
+  { id: 'shield2',   text: tr('Rozbij 2 przeszkody tarczą w jednym biegu', 'Smash 2 obstacles with a shield in one run'), stat: 'shieldHits', goal: 2, reward: 40 },
+  { id: 'power3',    text: tr('Zbierz 3 bonusy w jednym biegu', 'Collect 3 power-ups in one run'),         stat: 'powers',     goal: 3,    reward: 30 },
+  { id: 'day100',    text: tr('Zbierz dziś łącznie 100 gwiazdek', 'Collect 100 stars in total today'),       stat: 'dayStars',   goal: 100,  reward: 50, day: true },
+  { id: 'games5',    text: tr('Zagraj dziś 5 gier', 'Play 5 games today'),                     stat: 'games',      goal: 5,    reward: 30, day: true },
 ];
 const MBY = Object.fromEntries(MISSIONS.map(m => [m.id, m]));
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
@@ -350,7 +354,7 @@ function spawnLaser(sweep) {
 }
 function startTunnel() {
   tunnel = { rows: 16, total: 16, cx: W / 2, dir: Math.random() < .5 ? -1 : 1, vy: 230 + diff() * 120, t: 1 };
-  popText(W / 2, 150, 'TUNEL!', pal().obs); S.laserWarn();
+  popText(W / 2, 150, tr('TUNEL!', 'TUNNEL!'), pal().obs); S.laserWarn();
 }
 function spawnTunnelRow() {
   // rzędy ścian stykają się ze sobą, przejście lekko się przesuwa i zwęża
@@ -368,7 +372,7 @@ function spawnTunnelRow() {
 }
 function spawnStar() { stars.push({ x: tunnel ? tunnel.cx : 24 + Math.random() * (W - 48), y: -20, vy: 150 + diff() * 120, t: 0 }); }
 const POW = {
-  shield: { c: '#3df2ff', l: 'T' }, slow: { c: '#7dff6b', l: 'S' }, magnet: { c: '#ff5ec8', l: 'M' }, emp: { c: '#ffffff', l: 'E' },
+  shield: { c: '#3df2ff', l: tr('T', 'S') }, slow: { c: '#7dff6b', l: tr('S', 'T') }, magnet: { c: '#ff5ec8', l: 'M' }, emp: { c: '#ffffff', l: 'E' },
 };
 function spawnPower() {
   const r = Math.random(), kind = r < .3 ? 'shield' : r < .55 ? 'slow' : r < .8 ? 'magnet' : 'emp';
@@ -399,7 +403,7 @@ function checkMissions() {
     if (!m.day) daily.prog[id] = Math.max(daily.prog[id] || 0, v);
     if (v >= m.goal) {
       daily.done.push(id); prof.coins += m.reward; run.missions.push(m);
-      banner('MISJA WYKONANA!', m.text, '#ffd23d', '+' + m.reward + ' ⭐');
+      banner(tr('MISJA WYKONANA!', 'MISSION COMPLETE!'), m.text, '#ffd23d', '+' + m.reward + ' ⭐');
       S.mission(); buzz([20, 30, 20]); store.set('nu_daily', daily); saveProf();
     }
   }
@@ -453,7 +457,7 @@ function showOver() {
   if (rec) { best = s; store.set('nu_best', best); }
   $('sc').textContent = s; $('bestO').textContent = best;
   $('nr').style.display = rec ? 'block' : 'none';
-  $('runInfo').textContent = `⭐ +${run.stars} (masz ${prof.coins}) · Strefa ${zone}`;
+  $('runInfo').textContent = `⭐ +${run.stars} (${tr('masz', 'you have')} ${prof.coins}) · ${tr('Strefa', 'Zone')} ${zone}`;
   $('runMis').innerHTML = run.missions.map(m => '✔ ' + m.text + ' +' + m.reward + ' ⭐').join('<br>');
   show('over'); S.over(rec);
 }
@@ -463,7 +467,7 @@ function renderShop() {
   $('coinsS').textContent = prof.coins;
   const card = (kind, it, sel, preview) => {
     const own = prof.owned.includes(it.id);
-    const lbl = sel ? 'WYBRANE' : own ? 'WYBIERZ' : '⭐ ' + it.price;
+    const lbl = sel ? tr('WYBRANE', 'SELECTED') : own ? tr('WYBIERZ', 'SELECT') : '⭐ ' + it.price;
     const cls = sel || own ? 'own' : prof.coins < it.price ? 'dis' : '';
     return `<div class="card${sel ? ' sel' : ''}">${preview}<div class="nm">${it.name}</div>
       <button class="${cls}" data-kind="${kind}" data-id="${it.id}">${lbl}</button></div>`;
@@ -493,7 +497,7 @@ function renderMissions() {
     const m = MBY[id], v = missionValue(m), done = daily.done.includes(id);
     return `<div class="mis${done ? ' done' : ''}"><div class="t">${done ? '✔ ' : ''}${m.text}</div>
       <div class="bar"><i style="width:${v / m.goal * 100}%"></i></div>
-      <div class="r"><span>${v} / ${m.goal}</span><span>${done ? 'odebrane' : 'nagroda'} +${m.reward} ⭐</span></div></div>`;
+      <div class="r"><span>${v} / ${m.goal}</span><span>${done ? tr('odebrane', 'claimed') : tr('nagroda', 'reward')} +${m.reward} ⭐</span></div></div>`;
   }).join('');
 }
 
@@ -555,7 +559,7 @@ function update(dt) {
   const z = 1 + Math.floor(score / 500);
   if (z > zone) {
     zone = z; run.zone = z; const zp = pal();
-    banner('STREFA ' + z, zp.name, zp.obs, zp.news && z <= ZONES.length ? zp.news : '');
+    banner(tr('STREFA ', 'ZONE ') + z, zp.name, zp.obs, zp.news && z <= ZONES.length ? zp.news : '');
     S.zone(); flash = .5; flashCol = '255,255,255'; buzz([20, 40, 20]);
   }
 
@@ -589,7 +593,7 @@ function update(dt) {
       if (firing && !o.harmless && Math.abs(p.x - o.x) < o.w / 2 + p.r * .7) {
         if (shield > 0) {
           shield = 0; o.harmless = true; run.shieldHits++; burst(p.x, p.y, '#3df2ff', 24); S.shieldBreak(); buzz(40);
-          popText(p.x, p.y - 30, 'TARCZA!', '#3df2ff');
+          popText(p.x, p.y - 30, tr('TARCZA!', 'SHIELD!'), '#3df2ff');
         } else { gameOver(); return; }
       }
       if (o.t > o.warn + o.fire) obs.splice(i, 1);
@@ -605,13 +609,13 @@ function update(dt) {
     if (hit) {
       if (shield > 0) {
         shield = 0; run.shieldHits++; burst(o.x, o.y, pal().obs, 24); shake = 8; S.shieldBreak(); buzz(40);
-        popText(o.x, o.y, 'TARCZA!', '#3df2ff'); obs.splice(i, 1); continue;
+        popText(o.x, o.y, tr('TARCZA!', 'SHIELD!'), '#3df2ff'); obs.splice(i, 1); continue;
       }
       gameOver(); return;
     }
     const ext = o.kind === 'spin' ? o.w * .45 : o.kind === 'pulse' ? o.r0 * 1.45 : o.w / 2;
     if (!o.near && o.y > p.y && Math.abs(o.x - p.x) < ext + p.r + 18) {
-      o.near = true; score += 5; run.near++; popText(p.x, p.y - 30, 'blisko! +5', '#fff'); S.near();
+      o.near = true; score += 5; run.near++; popText(p.x, p.y - 30, tr('blisko! +5', 'close! +5'), '#fff'); S.near();
     }
     if (o.y > H + 60) obs.splice(i, 1);
   }
@@ -639,9 +643,9 @@ function update(dt) {
     if (Math.hypot(p.x - q.x, p.y - q.y) < p.r + 18) {
       const c = POW[q.kind].c; run.powers++; powers.splice(i, 1);
       burst(q.x, q.y, c, 20); buzz(20);
-      if (q.kind === 'shield') { shield = 7; run.picked = true; popText(q.x, q.y, 'TARCZA', c); }
-      else if (q.kind === 'slow') { slow = 4; popText(q.x, q.y, 'SPOWOLNIENIE', c); }
-      else if (q.kind === 'magnet') { magnet = 8; popText(q.x, q.y, 'MAGNES', c); }
+      if (q.kind === 'shield') { shield = 7; run.picked = true; popText(q.x, q.y, tr('TARCZA', 'SHIELD'), c); }
+      else if (q.kind === 'slow') { slow = 4; popText(q.x, q.y, tr('SPOWOLNIENIE', 'SLOW-MO'), c); }
+      else if (q.kind === 'magnet') { magnet = 8; popText(q.x, q.y, tr('MAGNES', 'MAGNET'), c); }
       if (q.kind === 'emp') { popText(q.x, q.y, 'EMP!', c); emp(); } else S.power();
       continue;
     }
@@ -824,13 +828,13 @@ function drawHud() {
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; glow('#3df2ff', 12);
   ctx.font = '900 34px system-ui, sans-serif'; ctx.fillText(Math.floor(score), 16, top + 14);
   ctx.shadowBlur = 0; ctx.font = '600 13px system-ui, sans-serif'; ctx.globalAlpha = .6;
-  ctx.fillText('REKORD ' + Math.max(best, Math.floor(score)), 16, top + 34); ctx.globalAlpha = 1;
-  ctx.fillStyle = '#ffd23d'; ctx.fillText('STREFA ' + zone + '  ·  ⭐ ' + run.stars, 16, top + 52);
+  ctx.fillText(tr('REKORD ', 'BEST ') + Math.max(best, Math.floor(score)), 16, top + 34); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#ffd23d'; ctx.fillText(tr('STREFA ', 'ZONE ') + zone + '  ·  ⭐ ' + run.stars, 16, top + 52);
   if (combo > 1) { ctx.fillStyle = '#ffd23d'; ctx.font = '900 20px system-ui, sans-serif'; ctx.fillText('x' + combo + ' COMBO', 16, top + 78);
     ctx.fillRect(16, top + 84, 90 * (comboT / 2.5), 3); }
   const tm = [];
-  if (slow > 0) tm.push(['SPOWOLNIENIE ' + slow.toFixed(1) + 's', '#7dff6b']);
-  if (magnet > 0) tm.push(['MAGNES ' + magnet.toFixed(1) + 's', '#ff5ec8']);
+  if (slow > 0) tm.push([tr('SPOWOLNIENIE ', 'SLOW-MO ') + slow.toFixed(1) + 's', '#7dff6b']);
+  if (magnet > 0) tm.push([tr('MAGNES ', 'MAGNET ') + magnet.toFixed(1) + 's', '#ff5ec8']);
   ctx.textAlign = 'center'; ctx.font = '800 14px system-ui, sans-serif';
   tm.forEach(([t, c], i) => { ctx.fillStyle = c; ctx.fillText(t, W / 2, H - 24 - i * 20); });
 }
@@ -863,6 +867,22 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// napisy w HTML
+const TXT = {
+  shop: ['Sklep', 'Shop'], missions: ['Misje', 'Missions'], best: ['Rekord', 'Best'], over: ['KONIEC', 'GAME OVER'], newBest: ['NOWY REKORD!', 'NEW BEST!'],
+  pause: ['PAUZA', 'PAUSED'], quit: ['Zakończ', 'Quit'], shopT: ['SKLEP', 'SHOP'], ships: ['STATKI', 'SHIPS'], trails: ['SMUGI', 'TRAILS'], back: ['Wróć', 'Back'],
+  misT: ['MISJE DNIA', 'DAILY MISSIONS'], misSub: ['Nowe misje codziennie o północy. Nagrody w ⭐ trafiają od razu do portfela.', 'New missions every day at midnight. ⭐ rewards go straight to your wallet.'],
+  revT: ['DRUGA SZANSA?', 'SECOND CHANCE?'], revSub: ['Wróć do gry w tym samym miejscu, z krótką tarczą.', 'Jump back in where you were, with a short shield.'],
+  revNo: ['Nie, dziękuję', 'No, thanks'], have: ['Masz', 'You have'],
+};
+document.querySelectorAll('[data-t]').forEach(el => { const t = TXT[el.dataset.t]; if (t) el.textContent = tr(t[0], t[1]); });
+document.title = tr('Neon Unik', 'Neon Dodge');
+$('title').innerHTML = tr('NEON<br><span>UNIK</span>', 'NEON<br><span>DODGE</span>');
+$('howto').innerHTML = tr('Przesuwaj palcem, żeby sterować.<br>Unikaj przeszkód, zbieraj ⭐ i bonusy.', 'Slide your finger to steer.<br>Dodge obstacles, grab ⭐ and power-ups.');
+$('play').textContent = tr('GRAJ', 'PLAY'); $('again').textContent = tr('JESZCZE RAZ', 'PLAY AGAIN'); $('resume').textContent = tr('GRAJ DALEJ', 'RESUME');
+$('revYes').textContent = tr('DALEJ', 'CONTINUE') + ' ⭐' + REVIVE_COST;
+$('pbtn').setAttribute('aria-label', tr('Pauza', 'Pause')); $('mbtn').setAttribute('aria-label', tr('Dźwięk', 'Sound')); $('musbtn').setAttribute('aria-label', tr('Muzyka', 'Music'));
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
