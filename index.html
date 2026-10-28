@@ -60,6 +60,18 @@
   .mis.done .bar i { background:var(--gold); }
   .mis .r { display:flex; justify-content:space-between; font-size:13px; opacity:.8; margin-top:6px; }
   #runInfo { margin:0; font-weight:700; }
+  .stats { display:flex; gap:6px; justify-content:center; }
+  .stat { min-width:62px; padding:6px 6px 7px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
+  .stat small { display:block; font-size:10px; letter-spacing:1.4px; opacity:.7; font-weight:800; }
+  .stat b { display:block; font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .rank { width:100%; max-width:300px; background:rgba(255,255,255,.06); border:1px solid rgba(61,242,255,.25); border-radius:14px; padding:10px 12px; text-align:left; box-sizing:border-box; }
+  .rank .t { display:flex; justify-content:space-between; font-weight:800; font-size:14px; gap:8px; }
+  .rank .t span:last-child { opacity:.7; font-variant-numeric:tabular-nums; }
+  .rank .s { font-size:12px; opacity:.7; margin-top:2px; }
+  .rank .bar { margin-top:7px; }
+  .rank.up { border-color:var(--gold); box-shadow:0 0 18px rgba(255,210,61,.35); }
+  #over { gap:10px; } #over h2 { font-size:34px; } #over .big { font-size:58px; line-height:1; }
+  #overEyebrow { margin:0; font-size:12px; letter-spacing:3px; font-weight:800; color:var(--cyan); min-height:14px; }
   #runMis { margin:0; color:var(--gold); font-size:14px; line-height:1.5; }
 </style>
 </head>
@@ -76,13 +88,22 @@
     <button class="sec" id="toMis">🎯 <span data-t="missions">Misje</span><span class="badge" id="misBadge">0/3</span></button>
   </div>
   <p class="best"><span data-t="best">Rekord</span>: <b id="bestM">0</b></p>
+  <div class="rank" id="rankM"></div>
 </div>
 
 <div id="over" class="ov">
+  <p id="overEyebrow"></p>
   <h2 data-t="over">KONIEC</h2>
   <div class="big" id="sc">0</div>
   <p id="nr" data-t="newBest">NOWY REKORD!</p>
-  <p class="best"><span data-t="best">Rekord</span>: <b id="bestO">0</b></p>
+  <div class="stats">
+    <div class="stat"><small data-t="stTime">CZAS</small><b id="oTime">0</b></div>
+    <div class="stat"><small data-t="stZone">STREFA</small><b id="oZone">1</b></div>
+    <div class="stat"><small data-t="stStars">GWIAZDKI</small><b id="oStars">0</b></div>
+    <div class="stat"><small data-t="stCombo">COMBO</small><b id="oCombo">x1</b></div>
+  </div>
+  <p class="best"><span data-t="best">Rekord</span>: <b id="bestO">0</b> · ⭐ <b id="coinsO">0</b></p>
+  <div class="rank" id="rankO"></div>
   <p id="runInfo"></p>
   <p id="runMis"></p>
   <button id="again">JESZCZE RAZ</button>
@@ -151,6 +172,18 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
 let best = store.get('nu_best', 0), muted = store.get('nu_muted', false), musicOn = store.get('nu_music', true);
+let xp = store.get('nu_xp', 0), tutorialDone = store.get('nu_tut', false);
+const RANKS = [[0, 'Kadet', 'Cadet'], [100, 'Pilot', 'Pilot'], [300, 'Porucznik', 'Lieutenant'], [700, 'Kapitan', 'Captain'], [1300, 'As', 'Ace'],
+  [2200, 'Weteran', 'Veteran'], [3500, 'Komandor', 'Commander'], [5500, 'Legenda Neonu', 'Neon Legend']];
+const rankOf = v => { let i = 0; while (i + 1 < RANKS.length && v >= RANKS[i + 1][0]) i++; return i; };
+const rankName = i => LANG === 'pl' ? RANKS[i][1] : RANKS[i][2];
+function rankHtml(gain = 0) {
+  const i = rankOf(xp), next = RANKS[i + 1];
+  const pct = next ? Math.round((xp - RANKS[i][0]) / (next[0] - RANKS[i][0]) * 100) : 100;
+  return `<div class="t"><span>🚀 ${rankName(i)}</span><span>${LANG === 'pl' ? 'ranga' : 'rank'} ${i + 1} / ${RANKS.length}</span></div>
+    <div class="s">${gain ? '+' + gain + ' XP · ' : ''}${next ? (LANG === 'pl' ? `do rangi „${rankName(i + 1)}” brakuje ${next[0] - xp} XP` : `${next[0] - xp} XP to “${rankName(i + 1)}”`) : (LANG === 'pl' ? 'najwyższa ranga!' : 'top rank!')}</div>
+    <div class="bar"><i style="width:${pct}%"></i></div>`;
+}
 
 // --- sklep: statki i smugi kupowane za gwiazdki ---
 const SHIPS = [
@@ -433,14 +466,14 @@ function hud(on) { $('pbtn').classList.toggle('show', on); }
 let backTo = 'menu';
 function start() {
   daily = loadDaily(); daily.games++; store.set('nu_daily', daily);
-  reset(); state = 'play'; show(null); hud(true); S.start(); checkMissions();
+  reset(); if (!tutorialDone) spawnT = 3; state = 'play'; show(null); hud(true); S.start(); checkMissions();
 }
 function pause() { if (state !== 'play') return; state = 'pause'; show('pause'); S.pause(); saveProf(); store.set('nu_daily', daily); }
 function resume() { state = 'play'; show(null); last = performance.now(); }
 function toMenu() {
   state = 'menu'; show('menu'); hud(false);
   daily = loadDaily();
-  $('bestM').textContent = best; $('coinsM').textContent = prof.coins;
+  $('bestM').textContent = best; $('coinsM').textContent = prof.coins; $('rankM').innerHTML = rankHtml();
   $('misBadge').textContent = daily.done.length + '/3';
 }
 function gameOver() {
@@ -455,9 +488,16 @@ function showOver() {
   state = 'over'; hud(false);
   const s = Math.floor(score), rec = s > best;
   if (rec) { best = s; store.set('nu_best', best); }
-  $('sc').textContent = s; $('bestO').textContent = best;
+  $('sc').textContent = s; $('bestO').textContent = best; $('coinsO').textContent = prof.coins;
   $('nr').style.display = rec ? 'block' : 'none';
-  $('runInfo').textContent = `⭐ +${run.stars} (${tr('masz', 'you have')} ${prof.coins}) · ${tr('Strefa', 'Zone')} ${zone}`;
+  const gain = Math.floor(s / 10) + run.stars * 2, before = rankOf(xp);
+  xp += gain; store.set('nu_xp', xp);
+  const up = rankOf(xp) > before;
+  $('rankO').innerHTML = rankHtml(gain); $('rankO').classList.toggle('up', up);
+  $('overEyebrow').textContent = up ? tr('AWANS: ', 'PROMOTED: ') + rankName(rankOf(xp)).toUpperCase() : rec ? '' : tr('STREFA ', 'ZONE ') + zone;
+  $('oTime').textContent = Math.floor(run.time) + 's'; $('oZone').textContent = zone; $('oStars').textContent = '+' + run.stars; $('oCombo').textContent = 'x' + run.combo;
+  if (!tutorialDone) { tutorialDone = true; store.set('nu_tut', true); }
+  $('runInfo').textContent = '';
   $('runMis').innerHTML = run.missions.map(m => '✔ ' + m.text + ' +' + m.reward + ' ⭐').join('<br>');
   show('over'); S.over(rec);
 }
@@ -704,6 +744,7 @@ function draw() {
 
   if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * .35})`; ctx.fillRect(0, 0, W, H); }
   if (player && (state === 'play' || state === 'pause' || state === 'dying')) { drawHud(); drawBanner(); }
+  if (!tutorialDone && state === 'play' && time < 4.5) drawTutorial();
 }
 
 function glow(color, blur) { ctx.shadowColor = color; ctx.shadowBlur = blur; }
@@ -839,6 +880,20 @@ function drawHud() {
   tm.forEach(([t, c], i) => { ctx.fillStyle = c; ctx.fillText(t, W / 2, H - 24 - i * 20); });
 }
 
+// wskazówka dla nowego gracza: palec przesuwa się w lewo i prawo pod statkiem
+function drawTutorial() {
+  const a = Math.min(1, time * 2, (4.5 - time) * 2), p = player, fx = p.x + Math.sin(time * 3) * 70, fy = p.y + 56;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]);
+  ctx.beginPath(); ctx.moveTo(p.x - 80, fy); ctx.lineTo(p.x + 80, fy); ctx.stroke(); ctx.setLineDash([]);
+  glow('#3df2ff', 16); ctx.fillStyle = 'rgba(61,242,255,.9)'; ctx.beginPath(); ctx.arc(fx, fy, 14, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '800 18px system-ui, sans-serif';
+  ctx.fillText(tr('Przesuwaj palcem w lewo i w prawo', 'Slide your finger left and right'), W / 2, H * .42);
+  ctx.font = '600 14px system-ui, sans-serif'; ctx.globalAlpha = a * .8;
+  ctx.fillText(tr('Unikaj przeszkód · zbieraj ⭐', 'Dodge obstacles · grab ⭐'), W / 2, H * .42 + 24);
+  ctx.restore();
+}
+
 function drawBanner() {
   const b = banners[0]; if (!b) return;
   const a = Math.max(0, Math.min(1, b.t * 2, (2.2 - b.t) * 5)), y = H * .3;
@@ -875,6 +930,7 @@ const TXT = {
   misT: ['MISJE DNIA', 'DAILY MISSIONS'], misSub: ['Nowe misje codziennie o północy. Nagrody w ⭐ trafiają od razu do portfela.', 'New missions every day at midnight. ⭐ rewards go straight to your wallet.'],
   revT: ['DRUGA SZANSA?', 'SECOND CHANCE?'], revSub: ['Wróć do gry w tym samym miejscu, z krótką tarczą.', 'Jump back in where you were, with a short shield.'],
   revNo: ['Nie, dziękuję', 'No, thanks'], have: ['Masz', 'You have'],
+  stTime: ['CZAS', 'TIME'], stZone: ['STREFA', 'ZONE'], stStars: ['GWIAZDKI', 'STARS'], stCombo: ['COMBO', 'COMBO'],
 };
 document.querySelectorAll('[data-t]').forEach(el => { const t = TXT[el.dataset.t]; if (t) el.textContent = tr(t[0], t[1]); });
 document.title = tr('Neon Unik', 'Neon Dodge');
