@@ -1103,5 +1103,36 @@ $('pbtn').setAttribute('aria-label', tr('Pauza', 'Pause')); $('mbtn').setAttribu
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
+<!-- FEEDBACK:start (gry/_narzedzia/feedback.py) -->
+<style>
+  .fb-btn { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; padding: 9px 16px; border-radius: 999px;
+    border: 1px solid currentColor; background: transparent; color: #e9e6ff; opacity: .8; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .fb-btn:active { transform: scale(.96); }
+  .fb-wrap { text-align: center; }
+</style>
+<script>
+(() => {
+  const lang = (navigator.languages && navigator.languages[0] || navigator.language || 'en').toLowerCase().startsWith('pl') ? 'pl' : 'en';
+  const t = (pl, en) => lang === 'pl' ? pl : en;
+  const name = t('Neon Unik', 'Neon Dodge');
+  const open = () => {
+    let prog = ''; try { prog = localStorage.getItem('nu_best') || ''; } catch (e) {}
+    const ua = navigator.userAgent, dev = (ua.match(/Android [^;)]+(;[^;)]+)?/) || [ua.slice(0, 80)])[0];
+    const body = t('Napisz, co Ci się podoba, co jest niejasne albo co nie działa:', 'Tell us what you like, what is unclear or what does not work:')
+      + '\n\n\n\n---\n' + name + ' 1.0.0\n' + dev + '\n' + screen.width + '×' + screen.height + ', ' + (navigator.language || '')
+      + (prog ? '\n' + t('Rekord', 'Best') + ': ' + prog : '');
+    location.href = 'mailto:bankowy11@gmail.com?subject=' + encodeURIComponent(t('Opinia', 'Feedback') + ': ' + name + ' 1.0.0') + '&body=' + encodeURIComponent(body);
+  };
+  const add = () => [['#menu', null]].forEach(([box, before]) => {
+    const host = document.querySelector(box); if (!host || host.querySelector('.fb-btn')) return;
+    const w = document.createElement('div'); w.className = 'fb-wrap';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'fb-btn'; b.textContent = '✉ ' + t('Wyślij opinię', 'Send feedback');
+    b.addEventListener('click', open); w.appendChild(b);
+    const ref = before && host.querySelector(before); ref ? host.insertBefore(w, ref) : host.appendChild(w);
+  });
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', add) : add();
+})();
+</script>
+<!-- FEEDBACK:end -->
 </body>
 </html>
